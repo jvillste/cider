@@ -159,6 +159,12 @@ If t, save the file without confirmation."
   :group 'cider
   :package-version '(cider . "0.16.0"))
 
+(defcustom cider-output-std-streams-to-popup nil
+  "Controls whether to output stdout and stderr to the popup buffer
+when running cider-pprint-eval-last-sexp"
+  :type 'boolean
+  :group 'cider)
+
 
 ;;; Utilities
 
@@ -618,11 +624,11 @@ This is used by pretty-printing commands."
      (cider-emit-into-popup-buffer buffer (ansi-color-apply value) nil t))
    (lambda (buffer out)
      (if std-streams-to-popup
-       (cider-emit-into-popup-buffer buffer out)
+         (cider-emit-into-popup-buffer buffer out)
        (cider-emit-interactive-eval-output out)))
    (lambda (buffer err)
      (if std-streams-to-popup
-       (cider-emit-into-popup-buffer buffer out)
+         (cider-emit-into-popup-buffer buffer out)
        (cider-emit-interactive-eval-err-output err)))
    nil
    nil
@@ -901,17 +907,15 @@ With an optional PRETTY-PRINT prefix it pretty-prints the result."
 (defun cider-pprint-eval-last-sexp (&optional output-to-current-buffer)
   "Evaluate the sexp preceding point and pprint its value.
 If invoked with OUTPUT-TO-CURRENT-BUFFER, insert as comment in the current
-buffer, else display in a popup buffer."
+buffer, else display in a popup buffer.
+
+The option `cider-output-std-streams-to-popup' can be used to control wether
+to output stdout and stderr to the popup buffer."
   (interactive "P")
   (if output-to-current-buffer
       (cider-pprint-eval-last-sexp-to-comment)
-    (cider--pprint-eval-form (cider-last-sexp 'bounds))))
-
-(defun cider-pprint-eval-last-sexp-with-std-streams ()
-  "Evaluate the sexp preceding point and pprint its value in a popup buffer along with stdout and stderr."
-  (interactive)
-  (cider--pprint-eval-form (cider-last-sexp 'bounds)
-                           t))
+    (cider--pprint-eval-form (cider-last-sexp 'bounds)
+                             cider-output-std-streams-to-popup)))
 
 (defun cider--prompt-and-insert-inline-dbg ()
   "Insert a #dbg button at the current sexp."
