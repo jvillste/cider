@@ -609,17 +609,21 @@ COMMENT-POSTFIX is the text to output after the last line."
      (lambda (_buffer warning)
        (setq res (concat res warning))))))
 
-(defun cider-popup-eval-handler (&optional buffer)
+(defun cider-popup-eval-handler (&optional buffer std-streams-to-popup)
   "Make a handler for printing evaluation results in popup BUFFER.
 This is used by pretty-printing commands."
   (nrepl-make-response-handler
    (or buffer (current-buffer))
    (lambda (buffer value)
      (cider-emit-into-popup-buffer buffer (ansi-color-apply value) nil t))
-   (lambda (_buffer out)
-     (cider-emit-interactive-eval-output out))
-   (lambda (_buffer err)
-     (cider-emit-interactive-eval-err-output err))
+   (lambda (buffer out)
+     (if std-streams-to-popup
+       (cider-emit-into-popup-buffer buffer out)
+       (cider-emit-interactive-eval-output out)))
+   (lambda (buffer err)
+     (if std-streams-to-popup
+       (cider-emit-into-popup-buffer buffer out)
+       (cider-emit-interactive-eval-err-output err)))
    nil
    nil
    nil
@@ -883,11 +887,11 @@ With an optional PRETTY-PRINT prefix it pretty-prints the result."
                               (cider--nrepl-print-request-map fill-column)
                             (cider--nrepl-pr-request-map))))
 
-(defun cider--pprint-eval-form (form)
+(defun cider--pprint-eval-form (form &optional std-streams-to-popup)
   "Pretty print FORM in popup buffer."
   (let* ((buffer (current-buffer))
          (result-buffer (cider-popup-buffer cider-result-buffer nil 'clojure-mode 'ancillary))
-         (handler (cider-popup-eval-handler result-buffer)))
+         (handler (cider-popup-eval-handler result-buffer std-streams-to-popup)))
     (with-current-buffer buffer
       (cider-interactive-eval (when (stringp form) form)
                               handler
@@ -902,6 +906,12 @@ buffer, else display in a popup buffer."
   (if output-to-current-buffer
       (cider-pprint-eval-last-sexp-to-comment)
     (cider--pprint-eval-form (cider-last-sexp 'bounds))))
+
+(defun cider-pprint-eval-last-sexp-with-std-streams ()
+  "Evaluate the sexp preceding point and pprint its value in a popup buffer along with stdout and stderr."
+  (interactive)
+  (cider--pprint-eval-form (cider-last-sexp 'bounds)
+                           t))
 
 (defun cider--prompt-and-insert-inline-dbg ()
   "Insert a #dbg button at the current sexp."
