@@ -615,26 +615,29 @@ COMMENT-POSTFIX is the text to output after the last line."
      (lambda (_buffer warning)
        (setq res (concat res warning))))))
 
-(defun cider-popup-eval-handler (&optional buffer)
+(defun cider-popup-eval-handler (buffer)
   "Make a handler for printing evaluation results in popup BUFFER.
 This is used by pretty-printing commands."
   (nrepl-make-response-handler
-   (or buffer (current-buffer))
+   buffer
    (lambda (buffer value)
-     (cider-emit-into-popup-buffer buffer (ansi-color-apply value) nil t))
-   (lambda (buffer out)
+     (cider-emit-into-popup-buffer buffer
+                                   value))
+   (lambda (buffer output)
      (if cider-output-std-streams-to-popup
-         (cider-emit-into-popup-buffer buffer out)
-       (cider-emit-interactive-eval-output out)))
-   (lambda (buffer err)
+         (cider-emit-into-popup-buffer buffer output)
+       (cider-emit-interactive-eval-output output)))
+   (lambda (buffer output)
+          (if cider-output-std-streams-to-popup
+              (cider-emit-into-popup-buffer buffer output)
+            (cider-emit-interactive-eval-err-output output)))
+   nil
+   nil
+   nil
+   (lambda (buffer output)
      (if cider-output-std-streams-to-popup
-         (cider-emit-into-popup-buffer buffer out)
-       (cider-emit-interactive-eval-err-output err)))
-   nil
-   nil
-   nil
-   (lambda (buffer warning)
-     (cider-emit-into-popup-buffer buffer warning 'font-lock-warning-face t))))
+              (cider-emit-into-popup-buffer buffer output 'font-lock-warning-face t)
+            (cider-emit-interactive-eval-err-output output)))))
 
 
 ;;; Interactive valuation commands
@@ -735,7 +738,7 @@ buffer."
     (cider-interactive-eval last-sexp
                             (cider-eval-print-handler)
                             nil
-                            (cider--nrepl-pr-request-map))))
+                            (cider--nrepl-print-request-map))))
 
 (defun cider-eval-sexp-at-point (&optional output-to-current-buffer)
   "Evaluate the expression around point.
@@ -895,14 +898,10 @@ With an optional PRETTY-PRINT prefix it pretty-prints the result."
 
 (defun cider--pprint-eval-form (form)
   "Pretty print FORM in popup buffer."
-  (let* ((buffer (current-buffer))
-         (result-buffer (cider-popup-buffer cider-result-buffer nil 'clojure-mode 'ancillary))
-         (handler (cider-popup-eval-handler result-buffer)))
-    (with-current-buffer buffer
-      (cider-interactive-eval (when (stringp form) form)
-                              handler
+  (cider-interactive-eval (when (stringp form) form)
+                              (cider-popup-eval-handler (cider-popup-buffer cider-result-buffer nil 'clojure-mode 'ancillary))
                               (when (consp form) form)
-                              (cider--nrepl-print-request-map fill-column)))))
+                              (cider--nrepl-print-request-map fill-column)))
 
 (defun cider-pprint-eval-last-sexp (&optional output-to-current-buffer)
   "Evaluate the sexp preceding point and pprint its value.
